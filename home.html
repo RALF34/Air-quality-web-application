@@ -1,0 +1,74 @@
+{% extends "main.html" %}
+
+{% block content %}
+
+<div class="header">
+
+</div>
+
+<div class ="main">
+    
+    <div class="main__header">
+        <h1 class="main__header__title"> Qualité de l'air près de chez vous !</h1><br/>
+        <h2 class="main__header__subtitle"> Vous souhaiter connaître les niveaux de  <a href="https://www.who.int/fr/news-room/fact-sheets/detail/ambient-(outdoor)-air-quality-and-health"> pollution atmosphérique </a> auxquels vous ètes <br/>
+             potentiellement exposé chaque jour lors de vos déplacements. Obtenez des éléments de réponse en suivant les étapes ci-dessous.</h2><br/>
+        
+        
+        <form action="{% url 'results' %}" method="POST">
+
+            {% csrf_token %}
+        
+            <h3> 1<sup>ère</sup> étape :  Identifiez la station de surveillance de la qualité de l'air la plus proche en cliquant <a>ici</a> <br/> 
+            Indiquez ensuite ci-dessous le code de la station choisie : </h3><br/> 
+        
+            <input name="station">
+        
+            
+            <h3> 2<sup>ème</sup> étape : Sélectionnez, parmi les deux choix ci-dessous, le type de renseignement que vous souhaitez obtenir : </h3><br/>
+                
+            <button type="button" class="collapsible_0"> Niveaux de pollution </button>
+            <div id="about_0"> Sur la période de votre choix, découvrez l'évolution récente des niveaux de concentration atmosphérique <br/> 
+                d'un ou de plusieurs des cinq polluants suivants : "Particules" (PM10), "Particules fines" (PM2.5), "Dioxyde d'azote" (NO2), "Dioxyde de soufre" (SO2), "Monoxyde de carbone" (CO).<br/>
+                <label for="period_select">Je m'intéresse à la pollution des : </label>
+
+                <select name="number_of_days" id="period_select">
+                    <option value="4">4 derniers jours</option>
+                    <option value= "8">8 derniers jours</option>
+                    <option value="12">12 derniers jours</option>
+                    <option value="16">16 derniers jours</option>
+                    <option value="20">20 derniers jours</option>
+                    <option value="24">24 derniers jours</option>
+                    <option value="28">28 derniers jours</option>
+
+                </select>
+            </div>
+                
+            <button type="button" class="collapsible_1"> Analyse comparative </button>
+            <div id="about_1"> Comparer les niveaux de pollution atmosphérique atteint à différents moments de la journée. <br/>
+                (les données utilisées pour cette analyse seront récoltées sur les 16 derniers jours). <br/><br/>
+                Veuillez définir les deux intervalles de temps que vous souhaiter comparer :  
+
+                <ul>
+                    <li> 1<sup>er</sup> intervalle : <input name="start_1" size=2>h00 ----> <input name="end_1" size=2>h00 </li>
+                    <li> 2<sup>ème</sup> intervalle : <input name="start_2" size=2>h00 ----> <input name="end_2" size=2>h00 </li>
+                                
+                </ul>
+            </div>   
+
+            <input type="submit" value="Valider">
+        </form>
+    </div>
+
+<div class="footer">
+
+</div>
+
+
+https://www.who.int/fr/news-room/fact-sheets/detail/ambient-(outdoor)-air-quality-and-health
+
+
+http://apps.who.int/iris/bitstream/handle/10665/69476/WHO_SDE_PHE_OEH_06.02_fre.pdf;jsessionid=30F4235A0D085EB8A572EA426E1FF1C6?sequence=1
+
+
+
+{% endblock content %}  

@@ -1,0 +1,94 @@
+{% extends "main.html" %}
+
+
+
+{% block content %}
+
+
+
+<h1> Résultats </h1><br/>
+<h2> Indications préalables : </h2>
+<ul>
+    <li> Les différents graphiques qui vont vous être présentés sur cette page ont été obtenus grâce à l'exploitation de données (fournies par <br/>
+        <a href="https://www.lcsqa.org/fr"> Laboratoire de contrôle et de surveillance de la qualité de l'air) </a> renseignant sur les niveaux moyens de concentration <br/>
+        atmosphérique de plusieurs polluants enregistrés par période d'une heure tous les jours par des stations de surveillance. <br/>
+        Vous pouvez télécharger ces données à l'adresse suivante : <br/>
+        <a href="https://files.data.gouv.fr/lcsqa/concentrations-de-polluants-atmospheriques-reglementes/temps-reel"> https://files.data.gouv.fr/lcsqa/concentrations-de-polluants-atmosphériques-reglementes/temps-reel </a>
+    </li> 
+</ul>
+
+
+{% if user_request.number_of_days != 0 %}
+
+<ul>
+    
+    <li> Afin de décrire l'évolution de la qualité de l'air autour de la localisation sélectionnée, six niveaux de concentration atmosphérique <br/>
+        sont utilisés pour chacun des polluants impliqués dans l'analyse. Ces niveaux sont construits à partir des concentrations moyennes <br/>
+        journalières recommandées (c.m.j.r) par l'<a href="https://apps.who.int/iris/bitstream/handle/10665/346555/9789240035423-fre.pdf?sequence=1&isAllowed=y">O.M.S</a> concernant ces mêmes polluants, et ce de la manière suivante : <br/>
+        <ul> 
+            <li> Niveau 1 : Concentration strictement inférieure à (1/3)*(c.m.j.r) </li>
+            <li> Niveau 2 : (1/3)*(c.m.j.r) ----> (2/3)*(c.m.j.r) </li>
+            <li> Niveau 3 : (2/3)*(c.m.j.r) ----> c.m.j.r </li>
+            <li> Niveau 4 :  Concentration supérieure à c.m.j.r </li>
+        </ul>
+    </li>
+    
+    <li>
+        Afin d'améliorer la lecture des résultats présentés par les différents graphiques qui vont suivre, chacun des six niveaux précédemment décris <br/>
+        a été associé à une couleur spécifique. Attention cependant à ne pas considérer ces couleurs comme des indicateurs de dangerosité potentielle <br/>
+        pour votre santé. Seuls le respect plus ou moins important des valeurs de concentration moyennes journalière établies par l'O.M.S peut vous <br/>
+        renseigner sur le niveau de risque (à long terme) pour votre organisme auquel l'air que vous respirez chaque jour est susceptible de vous exposer.
+    </li>
+
+</ul>
+
+
+{ % else %}
+
+
+<ul>
+    <li>
+        Pour chaque cas de polluant "<b> P </b>" étudié, les résultats de l'analyse sont présentés à l'aide d'un histogramme à barre horizontale.
+        Les valeurs annotées à côté de chaque barre de l'histogramme indique le surplus (exprimé sous forme de taux de croissance) de quantité dans l'air <br/>
+        de "<b> P </b>" constaté en comparant les deux moments de la journée qui vous intéresse en terme de pollution extérieure. L'orientation (gauche  <br/>
+        ou droite) des barres de l'histogramme est ensuite utlisée pour identifier le moment concerné par l'excès de concentration atmosphérique de "<b>P</b>" <br/>
+        révélé par l'analyse.
+    </li>
+    
+    <li>
+        Lorsque cela est rendu possible, l'analyse comparative est effectuée au niveau départemental, régional ainsi que national, et ce pour des stations <br/>
+        situées dans des <a href="https://www.lcsqa.org/fr/les-zones-administratives-et-stations-de-surveillance"> zones administratives de surveillance </a> de même catégorie que celle associée à la station <br/>
+        {{user_request.station.name}} (c'est à dire ici de type "{{user_request.station.type_of_zone}}").
+        Cliquez <a href="https.www.lcsqa.org/system/files/media/documents/Liste points de mesures 2020 pour site LCSQA_221292021.xlsx"> ici </a> pour télécharger les données  ce complément d'information.
+    </li>
+</ul>
+
+{% if r.station.number_of_days == 0 %}
+<h1>Voici les écarts de concentration atmosphérique observés pour les polluants suivants : </h1>
+{% endif %}
+
+{% for stat in all_the_statistics %}
+<div>
+    {% if stat.display_main_title %}
+    <h1>{{stat.main_title}}</h1>
+    {% endif %}
+
+    <h2>{{stat.about.name}} ({{stat.about.symbol}})</h2>
+    <span>
+        {% load static %}
+        <img src="{% static 'images/icons8-info-48.png' %}">
+    </span>
+    <div id="informations">
+        <h4> Origines </h4>
+        <p>{{stat.about.origins}}</p>
+        <h4>Effets sur la santé</h4>
+        <p>{{stat.about.health_effects}}</p>
+    </div>
+    <img src="{{stat.graph.url}}" >
+</div>
+{% endfor %}
+ 
+
+
+ 
+{% endblock content %}  
