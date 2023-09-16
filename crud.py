@@ -51,7 +51,7 @@ def initialize_database():
         data = pd.read_csv(url,sep=";")
         records = data.to_dict("records")
         for r in records:
-            r["dateTime"] = stringToDatetime(r["Date de début"])
+			r["dateTime"] = stringToDatetime(r["Date de début"])
 			r["date"] = r["dateTime"].date()
 			r["hour"] = r["date"].hour
 			r["duration"] = []
@@ -60,22 +60,27 @@ def initialize_database():
         k += 1
     database["LCSQA_data"].aggregate([
         {"$match": {"validité": 1}},
-        {"$rename": {"code station":"station",
-                     "Polluant":"pollutant",
-                     "valeur brute":"value"}},
-        {"$project": {"_id": 0,
-                      "station": 1,
-                      "pollutant":1,
-                      "concentration": {"dateTime": "$dateTime",
-					  					"date": "$date",
-					  					"hour": "$hour",
-					  				    "value": "$value"},
-					  "duration": 1}},
-        {"$group": {"_id": {"station": "$station", 
-                            "pollutant": "$pollutant"},
-					"history": 
-                           {"$push": "$concentration"},
-					"duration": "$duration"}},
+        {"$rename": 
+			{"code station":"station",
+			 "Polluant":"pollutant",
+			 "valeur brute":"value"}},
+        {"$project": 
+			{"_id": 0,
+			 "station": 1,
+			 "pollutant":1,
+			 "concentration": 
+			 	{"dateTime": "$dateTime",
+				 "date": "$date",
+				 "hour": "$hour",
+				 "value": "$value"},
+			"duration": 1}},
+        {"$group": 
+			{"_id": 
+				{"station": "$station", 
+				 "pollutant": "$pollutant"},
+			 "history": 
+				{"$push": "$concentration"},
+			 "duration": "$duration"}},
         {"$set": {"n_values": {"$size": "$history"},
                   "data_45_days_ago":
                         {"$eq": ["history.$",
@@ -91,7 +96,7 @@ def update():
     new_data = read_csv(url,sep=";")
     new_records = new_data.to_dict("records")
     for r in new_records:
-        r["dateTime"] = stringToDatetime(r["Date de début"])
+		r["dateTime"] = stringToDatetime(r["Date de début"])
 		r["date"] = r["dateTime"].date()
 		r["hour"] = r["dateTime"].hour
 		r["duration"] = []
@@ -99,13 +104,16 @@ def update():
     database["data_yesterday"].insert_many(new_records)
     database["data_yesterday"].aggregate([
         {"$match": {"validité": 1}},
-        {"$project": {"_id": {"station": "$code station",
-                              "pollutant": "$Polluant"},
-                      "concentration": {"dateTime": "$dateTime",
-					  					"date": "$date",
-					  					"hour": "$hour",
-										"value": "$valeur brute"},
-					  "duration": 1}}
+        {"$project": 
+			{"_id": 
+				{"station": "$code station",
+				 "pollutant": "$Polluant"},
+			"concentration": 
+				{"dateTime": "$dateTime",
+				 "date": "$date",
+				 "hour": "$hour",
+				 "value": "$valeur brute"},
+			"duration": 1}}
 	])
     database["LCSQA_data"].aggregate([
         {"$lookup": 
@@ -128,12 +136,13 @@ def update():
 		{"$out": "LCSQA_data"}
 	])
 
-def get_response(station,
-				 start_time,
-				 end_time,
-				 duration,
-				 pollutants,
-				 n_days=40
+def get_response(
+	station,
+	start_time,
+	end_time,
+	duration,
+	pollutants,
+	n_days=45
 ):
 	n, m = len(pollutants), end_time-start_time-duration+1
 	A = np.ndarray(shape=(n,m), dtype=float)
@@ -149,24 +158,29 @@ def get_response(station,
 			 "hour": {"$in": hours}}
 		).sort("dateTime").collection
 		for document in collection.aggregate([
-			{"$group": {"_id": "$date",
-						"interval":
-							{"$push": {"hour": "$hour",
-									   "value": "$value"}},
-						"duration": "$duration"}},
-			{"$project": {"time_slots": 
-						 	{"$function": {"body": getTimeSlots,
-											"args": ["$interval",
-											  		 "$duration"],
-											  "lang": "js"}}}}
+			{"$group": 
+				{"_id": "$date",
+				 "interval":
+				 	{"$push": 
+						{"hour": "$hour",
+						 "value": "$value"}},
+						 "duration": "$duration"}},
+			{"$project": 
+				{"time_slots": 
+					{"$function": 
+						{"body": getTimeSlots,
+						 "args": ["$interval","$duration"],
+						 "lang": "js"}}}}
 			]):
 			for e in document["interval"]:
 				dictionary[e[0]] += [e[1]]
 		for e, j in enumerate(dictionary.keys()):
-			A[i][j] = (None
-					   if not(dictionary[e])
-					   else np.mean(np.array(dictionary[e])))
+			A[i][j] = (
+				None if not(dictionary[e]) 
+				else np.mean(np.array(dictionary[e]))
+			)
 	index = np.argmin(A,axis=1)
-	return {"Best time slot":
-			(str(hours[index]) + "h00 -" +
-			 str(hours[index] + duration +1) + "h00")}
+	return {
+		"Best time slot": 
+		(str(hours[index]) + "h00 -" + str(hours[index] + duration +1) + "h00")
+	}
