@@ -1,5 +1,6 @@
 from bson.code import Code
 from datetime import date, datetime, timedelta
+from functools import reduce
 
 import numpy as np
 import pandas as pd
@@ -33,8 +34,8 @@ function (history, data_45_days_ago, data_yesterday){
 getTimeSlots = Code('''
 function (interval, duration){
   const A = Array();
-  for (let i = 0; i < interval.length - duration; i++){
-    A.push(interval.slice(i,i+duration));
+  for (let i = 0; i < interval.length - duration[0] + 1; i++){
+    A.push(interval.slice(i,i+duration[0]-1));
   }
   return A;
 }
@@ -76,8 +77,8 @@ def initialize_database():
 			"duration": 1}},
         {"$group": 
 			{"_id": 
-				{"station": "$station", 
-				 "pollutant": "$pollutant"},
+				{"$station": "$station",
+			 	 "pollutant": "$pollutant"},
 			 "history": 
 				{"$push": "$concentration"},
 			 "duration": "$duration"}},
@@ -104,12 +105,12 @@ def update():
     database["data_yesterday"].insert_many(new_records)
     database["data_yesterday"].aggregate([
         {"$match": {"validité": 1}},
-        {"$project": 
-			{"_id": 
+        {"$project":
+			{"_id":
 				{"station": "$code station",
 				 "pollutant": "$Polluant"},
-			"concentration": 
-				{"dateTime": "$dateTime",
+			 "concentration": 
+			 	{"dateTime": "$dateTime",
 				 "date": "$date",
 				 "hour": "$hour",
 				 "value": "$valeur brute"},
@@ -138,49 +139,97 @@ def update():
 
 def get_response(
 	station,
-	start_time,
-	end_time,
-	duration,
 	pollutants,
-	n_days=45
-):
-	n, m = len(pollutants), end_time-start_time-duration+1
-	A = np.ndarray(shape=(n,m), dtype=float)
-	hours = list(range(start_time, end_time+1))
+	duration=1,
+	period ="0-24",
+	n_days=45):
+	response = {}
 	data = database["LCSQA_data"].find(
-		{"_id.station": station}
+		{"_id":station}
 	).collection
-	data.update_one({}, {"duration": {"$push": duration}})
-	dictionary = {str(i): [] for i in range(hours)}
-	for p, i in enumerate(pollutants):
-		collection = data.find(
-			{"_id.polluant": p,
-			 "hour": {"$in": hours}}
-		).sort("dateTime").collection
-		for document in collection.aggregate([
-			{"$group": 
-				{"_id": "$date",
-				 "interval":
-				 	{"$push": 
-						{"hour": "$hour",
-						 "value": "$value"}},
-						 "duration": "$duration"}},
-			{"$project": 
-				{"time_slots": 
-					{"$function": 
-						{"body": getTimeSlots,
-						 "args": ["$interval","$duration"],
-						 "lang": "js"}}}}
-			]):
-			for e in document["interval"]:
-				dictionary[e[0]] += [e[1]]
-		for e, j in enumerate(dictionary.keys()):
-			A[i][j] = (
-				None if not(dictionary[e]) 
-				else np.mean(np.array(dictionary[e]))
+	start_time, end_time = map(lambda x: int(x), period.split("-"))
+	invalid_period = (
+		not(start_time in list(range(24))) or
+		not(end_time in list(range(1,25))) or
+		start_time >= end_time
+	)
+	if duration >= end_time - start_time:
+		response["Best time slots"] = (
+			"Unknown (duration too high for the given period)"
+		)
+		response["Intersection"] = "None"
+	elif invalid_period:
+		response["Best time slots"] = "Unknown (invalid period)"
+		response["Intersection"] = "None"
+	else:
+		n, m = len(pollutants), end_time-start_time-duration+1
+		A = np.ndarray(shape=(n,m), dtype=float)
+		hours = list(range(start_time, end_time+1))
+		data.update_one({}, {"duration": {"$push": duration}})
+		dictionary = {str(i): [] for i in range(hours)}
+		for p, i in enumerate(pollutants):
+			collection = data.find(
+				{"_id.polluant": p,
+			 	"hour": {"$in": hours}}
+			).sort("dateTime").collection
+			for document in collection.aggregate([
+				{"$group": 
+					{"_id": "$date",
+				 	"interval":
+				 		{"$push": 
+							{"hour": "$hour",
+						 	"value": "$value"}},
+						 	"duration": "$duration"}},
+				{"$project": 
+					{"time_slots": 
+						{"$function": 
+							{"body": getTimeSlots,
+						 	"args": ["$interval","$duration"],
+						 	"lang": "js"}}}}
+				]):
+				for e in document["interval"]:
+					dictionary[e[0]] += [e[1]]
+			for e, j in enumerate(dictionary.keys()):
+				A[i][j] = (
+					None if not(dictionary[e]) 
+					else np.mean(np.array(dictionary[e]))
+				)
+		indexes = np.nonzero(np.any(np.isnan(A),axis=0))
+		if not(indexes[0].size):
+			response["Best time slots"] = "Unknown (not enough data)"
+			response["Intersection"] = "None"
+		else:
+			pollutants_with_enough_data = pollutants[indexes]
+			X = np.argmin(A[indexes], axis=1)
+			slots_with_minimum_pollution = [
+				(str(hours[i]) + "h00 - " + 
+				 str(hours[i] + duration) + "h00"
+				) for i in X
+			]
+			response["Best time slots"] = {
+				k: v for k, v in zip(
+					pollutants_with_enough_data,
+					slots_with_minimum_pollution
+				)
+			}
+			slots_as_arrays = (
+				np.array(
+					list(
+						map(
+							(lambda x:
+								np.array(list(range(x[:2],x[7:9])))),
+							slot
+						)
+					)
+				) for slot in slots_with_minimum_pollution
 			)
-	index = np.argmin(A,axis=1)
-	return {
-		"Best time slot": 
-		(str(hours[index]) + "h00 -" + str(hours[index] + duration +1) + "h00")
-	}
+			intersection = reduce(np.intersect1d, slots_as_arrays)
+			response["Intersection"] = (
+				"None" if not(intersection.size)
+				else (
+					(str(intersection[0]) + "h00 - " +
+					 str(intersection[-1]) + "h00"
+					)
+				)
+			)
+	return response
